@@ -18,9 +18,17 @@ object RDD_Memory_Par1 {
     //    val rdd = sc.makeRDD(List(1, 2, 3, 4), 3)
     // [1],[2,3],[4,5]
     val rdd = sc.makeRDD(List(1, 2, 3, 4, 5), 3)
-    //        val start = ((i * length) / numSlices).toInt
-    //        val end = (((i + 1) * length) / numSlices).toInt
-    //        (start, end)
+    /*
+       (0 until numSlices).iterator.map { i =>
+        val start = ((i * length) / numSlices).toInt
+        val end = (((i + 1) * length) / numSlices).toInt
+        (start, end)
+        左闭右开
+        0 （0，1）
+        1 （1，3）
+        2 （3，5）
+      }
+     */
 
 
     // 将我们的数据处理完保存为分区文件，以分区为单位

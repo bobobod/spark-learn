@@ -7,7 +7,7 @@ import org.apache.spark.{SparkConf, SparkContext}
  * @author jianzhen.yin
  * @date 2020/12/27
  */
-object Oper_Transform_Par {
+object Oper_Transform_Map_Par {
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf().setMaster("local[*]").setAppName("rdd memory")
     val sc = new SparkContext(conf)

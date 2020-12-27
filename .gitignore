@@ -2,3 +2,4 @@
 *.log
 /output/
 /spark-core/target/
+/output1/

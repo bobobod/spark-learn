@@ -1,3 +1,4 @@
 *.class
 *.log
-output
+/output/
+/spark-core/target/

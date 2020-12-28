@@ -18,6 +18,8 @@ object Oper_Transform_GroupByKey {
     // 1。两者都存在shuffle操作。但是reduceByKey支持分区预聚合，可以减少shuffle落盘的数据量
     // 2。从功能的角度，reduceByKey支持分组和聚合，而groupByKey只支持分组，不能聚合
     //spark，shuffle操作必须落盘处理，不能在内存中数据等待，会导致内存溢出。shuffle操作会影响性能
+
+    // reduceByKey 分区内和分区间 的计算规则是一样的
     rdd.groupByKey().collect().foreach(println)
 
     rdd.groupBy(_._1).collect().foreach(println)

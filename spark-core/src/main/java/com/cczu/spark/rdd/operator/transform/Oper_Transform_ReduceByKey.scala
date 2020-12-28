@@ -15,6 +15,7 @@ object Oper_Transform_ReduceByKey {
     val rdd = sc.parallelize(List(("a",1),("a",1),("a",2),("b",3)),2)
     // 相同的key 对value进行聚合
     // spark和scala一样是两两聚合的
+    // reduceByKey 会进行预聚合
     // reduceByKey 如果key只有1个是不会参与计算的
     rdd.reduceByKey((x,y)=>{
       println(s"x=$x,y=$y")

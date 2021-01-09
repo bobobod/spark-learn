@@ -23,6 +23,7 @@ object RDD_BASE_Concept {
    *  stage：shuffle宽依赖数量+1
    * 4)Task:Stage 是一个 TaskSet，将 Stage 划分的结果发送到不同的 Executor 执行即为一个 Task。
    *  Task：每个stage阶段中最后一个依赖RDD的分区数量之和就是task的个数
+   *  task被调度的时候会放入线程池，通过轮询的方式发送到每个节点上面
    * 注意:Application->Job->Stage->Task 每一层都是 1 对 n 的关系。
    *
    * RDD缓存：

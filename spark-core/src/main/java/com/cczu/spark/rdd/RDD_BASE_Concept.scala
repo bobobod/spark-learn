@@ -22,7 +22,7 @@ object RDD_BASE_Concept {
    * 3)Stage:根据 RDD 之间的依赖关系的不同将 Job 划分成不同的 Stage，遇到一个宽依赖 则划分一个 Stage。
    *  stage：shuffle宽依赖数量+1
    * 4)Task:Stage 是一个 TaskSet，将 Stage 划分的结果发送到不同的 Executor 执行即为一个 Task。
-   *  Task：一个stage阶段，最后一个依赖RDD的分区数量和就是task的个数
+   *  Task：每个stage阶段中最后一个依赖RDD的分区数量之和就是task的个数
    * 注意:Application->Job->Stage->Task 每一层都是 1 对 n 的关系。
    *
    * RDD缓存：

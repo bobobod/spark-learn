@@ -22,8 +22,12 @@ object RDD_BASE_Concept {
    * 3)Stage:根据 RDD 之间的依赖关系的不同将 Job 划分成不同的 Stage，遇到一个宽依赖 则划分一个 Stage。
    *  stage：shuffle宽依赖数量+1
    * 4)Task:Stage 是一个 TaskSet，将 Stage 划分的结果发送到不同的 Executor 执行即为一个 Task。
-   *  Task：每个stage阶段中最后一个依赖RDD的分区数量之和就是task的个数
-   *  task被调度的时候会放入线程池，通过轮询的方式发送到每个节点上面
+   *  Task：1个stage阶段中最后一个依赖RDD的分区数量就是这个stage的task的个数
+   *
+   *  计算和数据的位置存在不同的级别，这个级别称为本地化级别
+   *  节点本地化：计算和数据在同一个节点上
+   *  进程本地化：计算和数据在同一个进程中
+   *  机架本地化：计算和数据在同一个机架中
    * 注意:Application->Job->Stage->Task 每一层都是 1 对 n 的关系。
    *
    * RDD缓存：

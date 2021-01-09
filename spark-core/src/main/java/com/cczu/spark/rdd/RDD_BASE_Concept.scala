@@ -16,6 +16,7 @@ object RDD_BASE_Concept {
    *
    * 基本概念：
    * RDD 任务切分中间分为:Application、Job、Stage 和 Task
+   *
    * 1)Application:初始化一个 SparkContext 即生成一个 Application
    * 2)Job:一个 Action 算子就会生成一个 Job
    * 3)Stage:根据 RDD 之间的依赖关系的不同将 Job 划分成不同的 Stage，遇到一个宽依赖 则划分一个 Stage。

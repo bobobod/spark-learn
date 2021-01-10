@@ -1,4 +1,4 @@
-package com.cczu.spark.rdd
+package com.cczu.spark
 
 /**
  *
@@ -61,5 +61,9 @@ object RDD_BASE_Concept {
    *        为了保证数据安全，所以一般情况下，会独立执行作业
    *        为了能够提高，一般和cache联合使用
    *        执行过程中，会切断血缘关系，重新建立新的血缘关系。checkpoint等同于改变了数据源
+   *
+   * shuffle一定会有落盘，减少落盘数据量很重要，向reduceByKey都有预聚合操作可以有效减少数据量
+   *
+   * spark 默认读取和保存文件的格式是parquet
    */
 }

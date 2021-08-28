@@ -23,7 +23,7 @@ object RDD_Persist {
       (word, 1)
     })
     wordToOne.persist()
-//    wordToOne.cache()
+    //    wordToOne.cache()
     val wordCount: RDD[(String, Int)] = wordToOne.reduceByKey(_ + _)
     val arr: Array[(String, Int)] = wordCount.collect()
     println("!!!!!!!!!!")

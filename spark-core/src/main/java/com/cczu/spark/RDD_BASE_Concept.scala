@@ -83,7 +83,7 @@ object RDD_BASE_Concept {
    * 1、 cache()同步数据的内存
    * 2、 columns 返回一个string类型的数组，返回值是所有列的名字
    * 3、 dtypes返回一个string类型的二维数组，返回值是所有列的名字以及类型
-   * 4、 explan()打印执行计划  物理的
+   * 4、 explain()打印执行计划  物理的
    * 5、 explain(n:Boolean) 输入值为 false 或者true ，返回值是unit  默认是false ，如果输入true 将会打印 逻辑的和物理的
    * 6、 isLocal 返回值是Boolean类型，如果允许模式是local返回true 否则返回false
    * 7、 persist(newlevel:StorageLevel) 返回一个dataframe.this.type 输入存储模型类型

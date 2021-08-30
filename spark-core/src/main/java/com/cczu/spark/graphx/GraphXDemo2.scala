@@ -88,6 +88,34 @@ object GraphXDemo2 {
         }
       }
     }.collect().foreach(println)
+
+    // 8. Connected Components 使用
+    val person: RDD[String] = sc.textFile("data/person")
+    val personRdd: RDD[(VertexId, Person)] = person.map(line => line.split(","))
+      .map(row => (row(0).toInt, Person(row(1).toString, row(2).toInt)))
+    val relation: RDD[String] = sc.textFile("data/relation")
+    type Relation = String
+    val relationRdd: RDD[Edge[Relation]] = relation.map(item => {
+      val row: Array[String] = item.split(",")
+      Edge(row(0).toInt, row(1).toInt, row(2).toString)
+    })
+    val graph2: Graph[Person, Relation] = Graph(personRdd, relationRdd)
+    val cc: Graph[VertexId, Relation] = graph2.connectedComponents()
+    println()
+    // 会输出每个定点在群组里的最小定点id
+    println(cc.vertices.collect().toList)
+    println()
+    // 关联属性
+    val newGraph: Graph[(VertexId, String, PartitionID), Relation] = cc
+      .outerJoinVertices(personRdd)((id, attr, p) => (attr, p.get.name, p.get.age))
+    cc.vertices.map(_._2).collect().distinct.foreach(id => {
+      println(id)
+      val sub: Graph[(VertexId, String, PartitionID), Relation] = newGraph.subgraph(vpred = (id1, attr) => attr._1 == id)
+      println(sub.triplets.collect().mkString(","))
+    })
     sc.stop()
+
   }
 }
+
+case class Person(name: String, age: Int)

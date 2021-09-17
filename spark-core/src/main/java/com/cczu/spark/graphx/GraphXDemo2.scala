@@ -102,12 +102,32 @@ object GraphXDemo2 {
     val graph2: Graph[Person, Relation] = Graph(personRdd, relationRdd)
     val cc: Graph[VertexId, Relation] = graph2.connectedComponents()
     println()
-    // 会输出每个定点在群组里的最小定点id
+    // 会输出每个定点在群组里的最小定点id,如果是点的话，会输出每个点对应的群组id（VertexID，groupId)
     println(cc.vertices.collect().toList)
+    println(cc.edges.collect().toList)
+    println(cc.triplets.collect().toList)
+    // VertexId是属性的类型
+    val vertices2: VertexRDD[VertexId] = cc.vertices
+    // Relation是属性的类型
+    val edges1: EdgeRDD[Relation] = cc.edges
+    // VertexId, Relation 是实体属性类型 和 关系属性类型
+    val triplets1: RDD[EdgeTriplet[VertexId, Relation]] = cc.triplets
+
+    println(cc.triplets.map(triplets => (triplets.srcId, triplets.dstId, triplets.srcAttr, triplets.dstAttr, triplets.attr)).collect().toList)
+
     println()
     // 关联属性
     val newGraph: Graph[(VertexId, String, PartitionID), Relation] = cc
       .outerJoinVertices(personRdd)((id, attr, p) => (attr, p.get.name, p.get.age))
+
+    val vertices1: VertexRDD[(VertexId, String, PartitionID)] = cc.outerJoinVertices(personRdd)((id, attr, p) => {
+      // id 和 attr是cc中vertices的id和属性 p是被join的属性  默认根据点的id关联
+      println(s"${id}  ${attr} ${p}")
+      (attr, p.get.name, p.get.age)
+    }
+    ).vertices
+    vertices1.map(_._2)
+    vertices1.collect()
     cc.vertices.map(_._2).collect().distinct.foreach(id => {
       println(id)
       val sub: Graph[(VertexId, String, PartitionID), Relation] = newGraph.subgraph(vpred = (id1, attr) => attr._1 == id)

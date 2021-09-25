@@ -32,7 +32,8 @@ object GraphXDemo2 {
     graph.vertices
     graph.edges
     graph.triplets
-    graph.degrees
+    // 返回每个实体的度数（v1，4）
+    val degrees: VertexRDD[PartitionID] = graph.degrees
     graph.inDegrees
     graph.outDegrees
     // 1. 找出年龄大于30的顶点
@@ -133,6 +134,17 @@ object GraphXDemo2 {
       val sub: Graph[(VertexId, String, PartitionID), Relation] = newGraph.subgraph(vpred = (id1, attr) => attr._1 == id)
       println(sub.triplets.collect().mkString(","))
     })
+
+    // 过滤度数
+    val degree = 11
+    val value: Graph[(String, PartitionID), PartitionID] = graph.filter(
+      graph => {
+        val degrees: VertexRDD[PartitionID] = graph.degrees
+        graph.outerJoinVertices(degrees) { (vid, data, deg) => deg.getOrElse(0) }
+      },
+      vpred = (vid: VertexId, deg: PartitionID) => deg > degree
+    )
+
     sc.stop()
 
   }

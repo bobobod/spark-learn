@@ -19,10 +19,13 @@ object ListDemo {
     println(list(1))
     //    list(1) =1 error
     list.foreach(println)
-    // 3. 添加元素 后加
+    // 3. 添加元素 前加
     val list2: List[Int] = list.+:(11)
+    // 后加
     val list3: List[Int] = list.:+(11)
-
+    println("-------")
+    println(list2)
+    println(list3)
     val list4 = 72 :: 82 :: Nil
     val list5 = list :: list4
     println(list5)

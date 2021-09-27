@@ -25,14 +25,21 @@ object ListDemo {
     val list3: List[Int] = list.:+(11)
     println("-------")
     println(list2)
+    // List(11, 23, 23, 11)
     println(list3)
+    // List(23, 23, 11, 11)
+    println(list3.init)
+    // List(23, 23, 11)
     val list4 = 72 :: 82 :: Nil
     val list5 = list :: list4
     println(list5)
+    // List(List(23, 23, 11), 72, 82)
     // 合并
     val list6 = list ::: list4
     val list7 = list ++ list4
     println(list6)
+    //    List(23, 23, 11, 72, 82)
+
 
     println(list.length)
     println(list.mkString(","))

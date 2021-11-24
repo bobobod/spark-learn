@@ -18,6 +18,7 @@ object Spark_Sql_Hive {
     // 1. 拷贝hive-site.xml文件到classpath下
     // 2. 启用hive的支持
     // 3. 增加依赖（mysql的驱动）
+    spark.sql("""""").cache()
     spark.close()
   }
 

@@ -65,6 +65,9 @@ object RDD_BASE_Concept {
    * shuffle一定会有落盘，减少落盘数据量很重要，向reduceByKey都有预聚合操作可以有效减少数据量
    *
    * spark 默认读取和保存文件的格式是parquet
+   *
+   * spark sql cache() 默认的存储级别是MemoryAndDisk
+   * spark rdd cache() 默认的存储级别是Memory
    */
 
 

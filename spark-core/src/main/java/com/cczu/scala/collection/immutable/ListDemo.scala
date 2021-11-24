@@ -1,5 +1,7 @@
 package com.cczu.scala.collection.immutable
 
+import java.util.concurrent.CompletableFuture
+
 object ListDemo {
   def main(args: Array[String]): Unit = {
     /**
@@ -38,8 +40,7 @@ object ListDemo {
     val list6 = list ::: list4
     val list7 = list ++ list4
     println(list6)
-    //    List(23, 23, 11, 72, 82)
-
+    //    List(23, 23, 11, 72, 82
 
     println(list.length)
     println(list.mkString(","))

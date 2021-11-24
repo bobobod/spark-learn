@@ -45,7 +45,7 @@ object JoinGraphXDemo {
     }.triplets.collect().toList)
 
     println("------outerJoinVertices----")
-    // outerJoin ,右外关联，如果图的实体没有关联上也会被遍历，这一点和joinVertices不同
+    // outerJoin ,外关联，如果图的实体没有关联上也会被遍历，这一点和joinVertices不同
     println(graph.outerJoinVertices(users2) {
       case (_, oldAttr, newAttr) => {
         println(s"${oldAttr._1}---${oldAttr._2}")

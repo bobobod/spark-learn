@@ -31,6 +31,8 @@ object ArrayBufferDemo {
     val arr: Array[Int] = buffer2.toArray
     // 不可变变可变
     val buff: mutable.Buffer[Int] = arr.toBuffer
+    val map: Map[String, String] = Map("a" -> "1", "b" -> "2")
+    println(map.get("c").toString)
   }
 
 }

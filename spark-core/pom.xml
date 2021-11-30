@@ -54,8 +54,12 @@
         <artifactId>spark-graphx_2.12</artifactId>
         <version>3.0.1</version>
     </dependency>
-
-
+    <!-- hdfs client-->
+    <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-client</artifactId>
+        <version>3.0.0</version>
+    </dependency>
 
 </dependencies>
 

@@ -66,8 +66,12 @@ object RDD_BASE_Concept {
    *
    * spark 默认读取和保存文件的格式是parquet
    *
+   * rdd和sql缓存级别的区别
    * spark sql cache() 默认的存储级别是MemoryAndDisk
    * spark rdd cache() 默认的存储级别是Memory
+   *
+   * kyro 是针对rdd而言的序列化
+   * sparksql有自己encode器
    */
 
 

@@ -10,7 +10,7 @@ import org.apache.spark.{SparkConf, SparkContext}
  */
 object RDD_Persist {
   def main(args: Array[String]): Unit = {
-    val conf: SparkConf = new SparkConf().setMaster("local").setAppName("word Count")
+    val conf: SparkConf = new SparkConf().setMaster("local[*]").setAppName("word Count")
     val sc = new SparkContext(conf)
 
     // 读取文件，获取一行一行数据
@@ -32,6 +32,8 @@ object RDD_Persist {
     for (elem <- arr) {
       println(elem)
     }
+    while (true){}
+
     sc.stop()
   }
 

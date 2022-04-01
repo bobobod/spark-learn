@@ -27,10 +27,10 @@ object GraphFrameDemo {
     val graphX: Graph[Row, Row] = graph.toGraphX
     val reverse: EdgeRDD[Row] = graphX.edges.reverse
     val value: RDD[Edge[Row]] = graphX.edges.union(reverse)
-    val graph2: GraphFrame = GraphFrame.fromGraphX(Graph(graphX.vertices, value))
-    val dataFrame: DataFrame = graph2.find("(a)-[e]->(b);(b)-[e2]->(c)").where(
-      "e.relationship = 'friend' and e2.relationship = 'follow' "
-    ).select("a", "b", "c").withColumn("group_id",$"a.id")
+//    val graph2: GraphFrame = GraphFrame.fromGraphX(Graph(graphX.vertices, value))
+    val dataFrame: DataFrame = graph.find("(a)-[e]->(b)").where(
+      "e.relationship = 'friend' "
+    ).select("a", "b").withColumn("group_id",$"a.id")
     dataFrame.show()
     sparkSession.close()
   }

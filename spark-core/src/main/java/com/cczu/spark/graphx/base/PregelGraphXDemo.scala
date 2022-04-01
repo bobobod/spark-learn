@@ -67,7 +67,8 @@ object PregelGraphXDemo {
     initialGraph.vertices.collect().foreach(println)
     initialGraph.edges.collect().foreach(println)
     println("--------")
-    val pregelGraph: Graph[Double, Double] = initialGraph.pregel(Double.PositiveInfinity,activeDirection = EdgeDirection.Out)((vid, attr, initialMsg) => math.min(attr, initialMsg), // vertex program
+    val pregelGraph: Graph[Double, Double] = initialGraph.pregel(Double.PositiveInfinity,activeDirection = EdgeDirection.Out)(
+      (vid, attr, initialMsg) => math.min(attr, initialMsg), // vertex program
       triplet => { // send message
         if (triplet.srcAttr + triplet.attr < triplet.dstAttr) {
           Iterator((triplet.dstId, triplet.srcAttr + triplet.attr))

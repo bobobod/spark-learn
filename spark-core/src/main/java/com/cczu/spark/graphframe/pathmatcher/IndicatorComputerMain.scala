@@ -2,11 +2,13 @@ package com.cczu.spark.graphframe.pathmatcher
 
 import java.util
 
-import com.alibaba.fastjson.{JSON, JSONArray, JSONObject}
+import com.alibaba.fastjson.{JSON, JSONObject}
+import com.alibaba.fastjson.serializer.SerializerFeature
 import org.apache.spark.SparkConf
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.functions.{col,count,udf}
+import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, SparkSession}
 import org.graphframes.GraphFrame
 
@@ -22,6 +24,7 @@ object IndicatorComputerMain {
     val conf: SparkConf = new SparkConf().setMaster("local").setAppName("indicatorDemo")
     val sparkSession: SparkSession = SparkSession.builder().config(conf).getOrCreate()
     val indicators: util.List[IndicatorBean] = getIndicators
+
     // （结构id:图结构)
     val structureMap: mutable.Map[String, StructureBean] = mutable.Map()
     for (indicator <- indicators.asScala) {
@@ -37,6 +40,7 @@ object IndicatorComputerMain {
         }
       }
     }
+
     val structureMapBc: Broadcast[mutable.Map[String, StructureBean]] = sparkSession.sparkContext.broadcast(structureMap)
     // (结构id:数据集)
     val structureData: mutable.Map[String, DataFrame] = mutable.Map()
@@ -47,7 +51,6 @@ object IndicatorComputerMain {
         .filter(pathMatch(_, structureId))
       structureData.put(structureId, structureDF)
     }
-    //    structureData.values.foreach(_.show(10))
 
     def pathMatch(value: Row, structureId: String): Boolean = {
       val structure: StructureBean = structureMapBc.value(structureId)
@@ -75,65 +78,122 @@ object IndicatorComputerMain {
       matched
     }
 
+    structureData.values.foreach(_.show())
+
+    val propsFilterUdf: UserDefinedFunction = udf(propsFilterFunc(_: String, _: String))
     // 遍历每个指标
     for (indicator <- indicators.asScala) {
       val operator: String = indicator.operator
-      val masterNodeObj: JSONObject = indicator.masterNode
-      val nodeListArr: JSONArray = masterNodeObj.getJSONArray("nodeList")
-      val element: JSONArray = indicator.element
+      val masterNodes: util.List[MasterNodeBean] = indicator.masterNodes
+      val computeNodes: util.List[ComputeNodeBean] = indicator.computeNodes
       // 单规则
-      if (nodeListArr.size() == 1) {
-        val nObject: JSONObject = nodeListArr.get(0).asInstanceOf[JSONObject]
-        val structureId: String = nObject.getString("structureId")
-        val masterNodeId: String = nObject.getString("nodeId")
-        val selectCol1: Column = col(masterNodeId.concat(".id")).alias(masterNodeId)
-        val groupCol: Column = col(masterNodeId)
+      if (!indicator.isCombRule) {
+        // 取第一个主节点
+        val masterNode: MasterNodeBean = masterNodes.get(0)
+        val structureId: String = masterNode.structureId
+        val masterNodeId: String = masterNode.nodeId
+        val groupCol: Column = col(masterNodeId.concat(".id")).alias(masterNodeId)
         val dataFrame: DataFrame = structureData(structureId)
-        operator match {
-          case "count" => {
-            val array: Array[AnyRef] = element.stream().map(_.asInstanceOf[JSONObject]).toArray
-            val elem: JSONObject = element.get(0).asInstanceOf[JSONObject]
-            val nodeId: String = elem.getString("nodeId")
-            val condition: Condition = JSON.parseObject(elem.getString("conditions"), classOf[Condition])
-            val computeFilterProps: String = nodeId.concat(".props")
-            val computeCol: Column = col(nodeId)
-            val selectCol2: Column = col(nodeId).alias(nodeId)
-            val selectCols: Array[Column] = Array(selectCol1, selectCol2)
-            // 先筛选
-            dataFrame
-              .select(selectCols: _*)
-              .groupBy(groupCol)
-              .agg(countUdf(condition, computeCol).head, countUdf(condition, computeCol).tail: _*)
-              .show()
-          }
-
-        }
+        val computeNodeCols: List[ComputeNodeBean] = computeNodes.asScala.map(item => {
+          item.copy(computeCol = col(item.nodeId))
+        }).toList
+        dataFrame
+          .groupBy(groupCol)
+          .agg(aggCompute(computeNodeCols, operator, propsFilterUdf).head,
+            aggCompute(computeNodeCols, operator, propsFilterUdf).tail: _*)
+          .show()
       }
-
-
     }
 
     sparkSession.stop()
   }
 
 
+  def aggCompute(computeNodes: List[ComputeNodeBean], operator: String, propsFilterUdf: UserDefinedFunction): ArrayBuffer[Column] = {
+    val cols: ArrayBuffer[Column] = new ArrayBuffer[Column]()
 
-  def countUdf(condition: Condition, columns: Column*): ArrayBuffer[Column] = {
-    val indicators: ArrayBuffer[Column] = new ArrayBuffer[Column]()
-    for (col <- columns) {
-      indicators.append(count(col))
-    }
-    indicators
+    computeNodes.foreach(computeNode => {
+      val condition: CustomCondition = computeNode.condition
+
+      val aggOper: Column = operator match {
+        case "count" => {
+          // 属性过滤
+          val col: Column = when(
+            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            computeNode.computeCol.getField("id"))
+            .otherwise(lit(null))
+          // 去重统计
+          countDistinct(col).alias(computeNode.nodeId)
+        }
+        case "attributeMax" => {
+          val attribute: String = computeNode.attribute
+          val col: Column = when(
+            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            get_json_object(computeNode.computeCol.getField("props"), "$.".concat(attribute)))
+            .otherwise(lit(null)
+            )
+          max(col).alias(computeNode.nodeId)
+        }
+        case "attributeMin" => {
+          val attribute: String = computeNode.attribute
+          val col: Column = when(
+            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            get_json_object(computeNode.computeCol.getField("props"), "$.".concat(attribute)))
+            .otherwise(lit(null)
+            )
+          min(col).alias(computeNode.nodeId)
+        }
+        case "attributeAvg" => {
+          val attribute: String = computeNode.attribute
+          val col: Column = when(
+            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            get_json_object(computeNode.computeCol.getField("props"), "$.".concat(attribute)))
+            .otherwise(lit(null)
+            )
+          avg(col).alias(computeNode.nodeId)
+        }
+        case "attributeMean" => {
+          val attribute: String = computeNode.attribute
+          val col: Column = when(
+            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            get_json_object(computeNode.computeCol.getField("props"), "$.".concat(attribute)))
+            .otherwise(lit(null)
+            )
+          mean(col).alias(computeNode.nodeId)
+        }
+        case "attributeVariance" => {
+          val attribute: String = computeNode.attribute
+          val col: Column = when(
+            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            get_json_object(computeNode.computeCol.getField("props"), "$.".concat(attribute)))
+            .otherwise(lit(null)
+            )
+          variance(col).alias(computeNode.nodeId)
+        }
+
+      }
+
+      cols.append(aggOper)
+    })
+    cols
   }
 
-  def propsFilterFunc(props: String, condition: Condition): Boolean = {
+
+  def propsFilterFunc(props: String, condition: CustomCondition): Boolean = {
     // 补充过滤逻辑
     true
   }
 
-  def propsFilterFunc(props: String): Boolean = {
-    // 补充过滤逻辑
-    propsFilterFunc(props, null)
+  /**
+   * 自定义属性过滤udf
+   *
+   * @param props
+   * @param conditionStr
+   * @return
+   */
+  def propsFilterFunc(props: String, conditionStr: String): Boolean = {
+    val condition: CustomCondition = JSON.parseObject(conditionStr, classOf[CustomCondition])
+    propsFilterFunc(props, condition)
   }
 
   def analyzePath(graph: GraphBean): String = {
@@ -163,20 +223,22 @@ object IndicatorComputerMain {
   }
 
 
-
   def getGraphFrame(sparkSession: SparkSession): GraphFrame = {
     val v: DataFrame = sparkSession.createDataFrame(
       List(
         (1, "person", "{}"),
         (2, "enterprise", "{}"),
-        (3, "enterprise", "{}"))
+        (3, "enterprise", "{}"),
+        (4, "enterprise", "{}")
+      )
     ).toDF("id", "label", "props")
     val e: DataFrame = sparkSession.createDataFrame(
       List(
         (1, 2, "officer", "{}"),
         (1, 3, "belong", "{}"),
-        (2, 3, "belong2", "{}"),
-        (1, 3, "belong2", "{}")
+        (2, 3, "belong3", "{}"),
+        (1, 3, "belong2", "{}"),
+        (1, 4, "belong2", "{}")
       )
     ).toDF("src", "dst", "edge_label", "edge_props")
     GraphFrame(v, e)
@@ -189,17 +251,16 @@ object IndicatorComputerMain {
         |[
         |    {
         |        "indicator": "indicator1",
+        |        "indicatorName":"指标名",
         |        "isCombRule": false,
-        |        "masterNode": {
-        |            "nodeList": [
-        |                {
-        |                    "structureId": "1111",
-        |                    "nodeId": "a",
-        |                    "name": "自然人"
-        |                }
-        |            ],
-        |            "label": "person"
-        |        },
+        |        "masterNodes": [
+        |          {
+        |                 "structureId": "1111",
+        |                 "nodeId": "a",
+        |                 "name": "自然人",
+        |                 "label": "person"
+        |           }
+        |        ],
         |        "structures": [
         |            {
         |                "id": "1111",
@@ -213,6 +274,12 @@ object IndicatorComputerMain {
         |                        },
         |                        {
         |                            "id": "b",
+        |                            "label": "enterprise",
+        |                            "showFlag": false,
+        |                            "conditions": {}
+        |                        },
+        |                        {
+        |                            "id": "c",
         |                            "label": "enterprise",
         |                            "showFlag": false,
         |                            "conditions": {}
@@ -232,26 +299,46 @@ object IndicatorComputerMain {
         |                                    "conditions": {}
         |                                }
         |                            ]
+        |                        },
+        |                        {
+        |                            "edgeId": "edge2",
+        |                            "srcId": "a",
+        |                            "srcLabel": "person",
+        |                            "dstId": "c",
+        |                            "dstLabel": "enterprise",
+        |                            "showFlag": true,
+        |                            "edgeLabelList": [
+        |                                {
+        |                                    "label": "belong",
+        |                                    "conditions": {}
+        |                                },
+        |                                {
+        |                                    "label": "belong2",
+        |                                    "conditions": {}
+        |                                }
+        |                            ]
         |                        }
         |                    ]
         |                }
         |            }
         |        ],
-        |        "element": [
+        |        "computeNodes": [
         |            {
         |                "structureId": "1111",
         |                "nodeId": "b",
         |                "name": "enterprise",
         |                "label": "enterprise",
         |                "attribute": "",
+        |                "ratioType":"",
         |                "conditions": {}
         |            },
         |            {
         |                "structureId": "1111",
-        |                "nodeId": "b",
+        |                "nodeId": "c",
         |                "name": "enterprise",
         |                "label": "enterprise",
         |                "attribute": "",
+        |                "ratioType":"",
         |                "conditions": {}
         |            }
         |        ],
@@ -269,18 +356,20 @@ object IndicatorComputerMain {
 /**
  * 指标
  *
- * @param indicator  指标id
- * @param isCombRule 跨规则
- * @param masterNode 主实体映射关系
- * @param element    计算主体
- * @param operator   运算
- * @param structures 关联图结构集合
+ * @param indicator     指标id
+ * @param indicatorName 指标名称
+ * @param isCombRule    跨规则
+ * @param masterNodes   主实体映射关系
+ * @param computeNodes  计算主体
+ * @param operator      运算
+ * @param structures    关联图结构集合
  */
 case class IndicatorBean(
                           indicator: String,
+                          indicatorName: String,
                           isCombRule: Boolean,
-                          masterNode: JSONObject,
-                          element: JSONArray,
+                          masterNodes: util.List[MasterNodeBean],
+                          computeNodes: util.List[ComputeNodeBean],
                           operator: String,
                           structures: util.List[StructureBean]
                         )
@@ -322,7 +411,7 @@ case class Node(
                  id: String,
                  label: String,
                  showFlag: Boolean,
-                 conditions: Condition
+                 conditions: CustomCondition
                )
 
 /**
@@ -354,7 +443,7 @@ case class Edge(
  */
 case class EdgeLabelBean(
                           label: String,
-                          conditions: Condition
+                          conditions: CustomCondition
                         )
 
 /**
@@ -368,9 +457,47 @@ case class EdgeLabelBean(
  */
 case class Condition(
                       logic: String,
-                      group: util.List[Condition],
+                      group: util.List[CustomCondition],
                       key: String,
                       operator: String,
                       value: String
                     )
+
+/**
+ * 计算节点配置
+ *
+ * @param structureId
+ * @param nodeId
+ * @param name
+ * @param label
+ * @param attribute
+ * @param ratioType
+ * @param condition
+ * @param computeCol
+ */
+case class ComputeNodeBean(
+                            structureId: String,
+                            nodeId: String,
+                            name: String,
+                            label: String,
+                            attribute: String,
+                            ratioType: String,
+                            condition: CustomCondition,
+                            computeCol: Column
+                          )
+
+/**
+ * 主节点
+ *
+ * @param structureId
+ * @param nodeId
+ * @param name
+ * @param label
+ */
+case class MasterNodeBean(
+                           structureId: String,
+                           nodeId: String,
+                           name: String,
+                           label: String
+                         )
 

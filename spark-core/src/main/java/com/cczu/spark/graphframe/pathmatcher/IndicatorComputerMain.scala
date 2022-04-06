@@ -94,13 +94,11 @@ object IndicatorComputerMain {
         val masterNodeId: String = masterNode.nodeId
         val groupCol: Column = col(masterNodeId.concat(".id")).alias(masterNodeId)
         val dataFrame: DataFrame = structureData(structureId)
-        val computeNodeCols: List[ComputeNodeBean] = computeNodes.asScala.map(item => {
-          item.copy(computeCol = col(item.nodeId))
-        }).toList
+
         dataFrame
           .groupBy(groupCol)
-          .agg(aggCompute(computeNodeCols, operator, propsFilterUdf).head,
-            aggCompute(computeNodeCols, operator, propsFilterUdf).tail: _*)
+          .agg(aggCompute(computeNodes, operator, propsFilterUdf).head,
+            aggCompute(computeNodes, operator, propsFilterUdf).tail: _*)
           .show()
       }
     }
@@ -109,65 +107,61 @@ object IndicatorComputerMain {
   }
 
 
-  def aggCompute(computeNodes: List[ComputeNodeBean], operator: String, propsFilterUdf: UserDefinedFunction): ArrayBuffer[Column] = {
+  def aggCompute(computeNodes: util.List[ComputeNodeBean], operator: String, propsFilterUdf: UserDefinedFunction): ArrayBuffer[Column] = {
     val cols: ArrayBuffer[Column] = new ArrayBuffer[Column]()
 
-    computeNodes.foreach(computeNode => {
+    computeNodes.asScala.foreach(computeNode => {
       val condition: CustomCondition = computeNode.condition
+      val attribute: String = computeNode.attribute
+      val computeCol: Column = col(computeNode.nodeId)
 
       val aggOper: Column = operator match {
         case "count" => {
           // 属性过滤
           val col: Column = when(
-            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
-            computeNode.computeCol.getField("id"))
+            propsFilterUdf(computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            computeCol.getField("id"))
             .otherwise(lit(null))
           // 去重统计
           countDistinct(col).alias(computeNode.nodeId)
         }
         case "attributeMax" => {
-          val attribute: String = computeNode.attribute
           val col: Column = when(
-            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
-            get_json_object(computeNode.computeCol.getField("props"), "$.".concat(attribute)))
+            propsFilterUdf(computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            get_json_object(computeCol.getField("props"), "$.".concat(attribute)))
             .otherwise(lit(null)
             )
           max(col).alias(computeNode.nodeId)
         }
         case "attributeMin" => {
-          val attribute: String = computeNode.attribute
           val col: Column = when(
-            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
-            get_json_object(computeNode.computeCol.getField("props"), "$.".concat(attribute)))
+            propsFilterUdf(computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            get_json_object(computeCol.getField("props"), "$.".concat(attribute)))
             .otherwise(lit(null)
             )
           min(col).alias(computeNode.nodeId)
         }
         case "attributeAvg" => {
-          val attribute: String = computeNode.attribute
           val col: Column = when(
-            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
-            get_json_object(computeNode.computeCol.getField("props"), "$.".concat(attribute)))
+            propsFilterUdf(computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            get_json_object(computeCol.getField("props"), "$.".concat(attribute)))
             .otherwise(lit(null)
             )
           avg(col).alias(computeNode.nodeId)
         }
         case "attributeMean" => {
-          val attribute: String = computeNode.attribute
           val col: Column = when(
-            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
-            get_json_object(computeNode.computeCol.getField("props"), "$.".concat(attribute)))
+            propsFilterUdf(computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            get_json_object(computeCol.getField("props"), "$.".concat(attribute)))
             .otherwise(lit(null)
             )
           mean(col).alias(computeNode.nodeId)
         }
         case "attributeVariance" => {
-          val attribute: String = computeNode.attribute
           val col: Column = when(
-            propsFilterUdf(computeNode.computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
-            get_json_object(computeNode.computeCol.getField("props"), "$.".concat(attribute)))
-            .otherwise(lit(null)
-            )
+            propsFilterUdf(computeCol.getField("props"), lit(JSON.toJSONString(condition, SerializerFeature.MapSortField))),
+            get_json_object(computeCol.getField("props"), "$.".concat(attribute)))
+            .otherwise(lit(null))
           variance(col).alias(computeNode.nodeId)
         }
 
@@ -227,9 +221,9 @@ object IndicatorComputerMain {
     val v: DataFrame = sparkSession.createDataFrame(
       List(
         (1, "person", "{}"),
-        (2, "enterprise", "{}"),
-        (3, "enterprise", "{}"),
-        (4, "enterprise", "{}")
+        (2, "enterprise", "{\"money\":111}"),
+        (3, "enterprise", "{\"money\":222}"),
+        (4, "enterprise", "{\"money\":333}")
       )
     ).toDF("id", "label", "props")
     val e: DataFrame = sparkSession.createDataFrame(
@@ -328,7 +322,7 @@ object IndicatorComputerMain {
         |                "nodeId": "b",
         |                "name": "enterprise",
         |                "label": "enterprise",
-        |                "attribute": "",
+        |                "attribute": "money",
         |                "ratioType":"",
         |                "conditions": {}
         |            },
@@ -337,12 +331,12 @@ object IndicatorComputerMain {
         |                "nodeId": "c",
         |                "name": "enterprise",
         |                "label": "enterprise",
-        |                "attribute": "",
+        |                "attribute": "money",
         |                "ratioType":"",
         |                "conditions": {}
         |            }
         |        ],
-        |        "operator": "count"
+        |        "operator": "attributeMax"
         |    }
         |]
         |""".stripMargin
@@ -473,7 +467,6 @@ case class Condition(
  * @param attribute
  * @param ratioType
  * @param condition
- * @param computeCol
  */
 case class ComputeNodeBean(
                             structureId: String,
@@ -482,8 +475,7 @@ case class ComputeNodeBean(
                             label: String,
                             attribute: String,
                             ratioType: String,
-                            condition: CustomCondition,
-                            computeCol: Column
+                            condition: CustomCondition
                           )
 
 /**
